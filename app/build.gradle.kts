@@ -62,6 +62,11 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = false
     }
+
+    // ~100MB Small ONNX must stay uncompressed so AssetManager.openFd / streaming copy works.
+    androidResources {
+        noCompress += listOf("onnx")
+    }
 }
 
 dependencies {

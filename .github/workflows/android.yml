@@ -21,14 +21,36 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Grant execute permission for scripts
+        run: chmod +x gradlew scripts/download-models.sh
+
+      - name: Download bundled Depth Anything V2 Small into assets
+        run: ./scripts/download-models.sh small --assets
 
       - name: Unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: Assemble debug APK
         run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify APK contains bundled Small ONNX and display name
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$apk"
+          unzip -l "$apk" | grep -E "assets/models/depth_anything_v2_vits\.onnx"
+          size="$(unzip -l "$apk" | awk '/depth_anything_v2_vits\.onnx/ { print $1 }')"
+          echo "Bundled Small uncompressed size in APK: $size bytes"
+          test "$size" -gt 50000000
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          aapt="$(ls -1 "$sdk"/build-tools/*/aapt 2>/dev/null | tail -n1 || true)"
+          if [[ -n "$aapt" && -x "$aapt" ]]; then
+            "$aapt" dump badging "$apk" | tee /tmp/apk-badging.txt
+            grep -F "application-label:'白模构建'" /tmp/apk-badging.txt
+          else
+            echo "aapt not found; skipping launcher-label check"
+          fi
+          echo "APK checks passed"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

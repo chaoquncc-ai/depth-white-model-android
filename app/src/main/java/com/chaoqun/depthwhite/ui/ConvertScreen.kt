@@ -124,7 +124,7 @@ fun ConvertScreen(vm: ConvertViewModel = viewModel()) {
             SectionCard(title = "2. 模型大小") {
                 ChipRow(
                     items = listOf(
-                        ModelSize.SMALL to "Small（默认）",
+                        ModelSize.SMALL to "Small（默认，已内置）",
                         ModelSize.BASE to "Base",
                         ModelSize.LARGE to "Large",
                     ),
@@ -141,7 +141,12 @@ fun ConvertScreen(vm: ConvertViewModel = viewModel()) {
                     },
                 )
                 if (!state.modelReady) {
-                    Text("模型未下载。开始转换时会自动下载并显示进度；也可将 ONNX 放到应用 files/models/。")
+                    val missing = if (state.options.modelSize == ModelSize.SMALL) {
+                        "未找到内置 Small 权重。开始转换时会尝试从网络下载；也可将 ONNX 放到应用 files/models/。"
+                    } else {
+                        "模型未下载。开始转换时会自动下载并显示进度；也可将 ONNX 放到应用 files/models/。"
+                    }
+                    Text(missing)
                 }
             }
 

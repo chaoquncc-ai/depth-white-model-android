@@ -100,12 +100,18 @@ class ConvertViewModel(application: Application) : AndroidViewModel(application)
 
     fun refreshModelStatus() {
         val size = _state.value.options.modelSize
+        val bundled = store.hasBundledAsset(size)
         val ready = store.isReady(size)
         val hint = when {
+            size == ModelSize.SMALL && bundled ->
+                "APK 已内置 Small（${size.fileName}），首次启动无需联网。"
             ready -> "模型已就绪：${size.fileName}"
-            size == ModelSize.LARGE -> "Large 约 1.3GB，中端机极易内存不足，建议 Small / Base。首次转换会自动下载。"
-            size == ModelSize.BASE -> "Base 约 390MB。首次转换会自动下载。"
-            else -> "Small 约 100MB。首次使用将自动下载，也可点击下方按钮预下载。"
+            size == ModelSize.LARGE ->
+                "Large 约 1.3GB，中端机极易内存不足，建议 Small / Base。首次转换会自动下载。"
+            size == ModelSize.BASE ->
+                "Base 约 390MB。首次转换会自动下载（Small 已随 APK 内置）。"
+            bundled -> "正在从 APK 复制内置 Small 模型…"
+            else -> "Small 约 100MB。当前 APK 未打入该权重，开始转换时会自动下载。"
         }
         _state.update { it.copy(modelReady = ready, modelHint = hint) }
     }

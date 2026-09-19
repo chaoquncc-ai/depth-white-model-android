@@ -33,24 +33,34 @@ class ConversionPipeline(private val context: Context) {
         isCancelled: () -> Boolean,
     ): Result {
         val store = ModelStore(context)
-        if (!store.isReady(options.modelSize)) {
-            onProgress(
-                ConversionProgress(
-                    phase = ConversionProgress.Phase.DOWNLOAD,
-                    message = "正在下载 ${options.modelSize.fileName} …",
-                    downloadPercent = 0,
-                ),
-            )
-            store.download(options.modelSize, { downloaded, total ->
-                val percent = if (total > 0) ((downloaded * 100) / total).toInt().coerceIn(0, 99) else 0
+        if (!store.isOnDisk(options.modelSize)) {
+            if (store.hasBundledAsset(options.modelSize)) {
                 onProgress(
                     ConversionProgress(
                         phase = ConversionProgress.Phase.DOWNLOAD,
-                        message = "正在下载模型 ${percent}%",
-                        downloadPercent = percent,
+                        message = "正在从 APK 复制内置 ${options.modelSize.fileName} …",
                     ),
                 )
-            }, isCancelled)
+                store.ensureFromAssets(options.modelSize)
+            } else {
+                onProgress(
+                    ConversionProgress(
+                        phase = ConversionProgress.Phase.DOWNLOAD,
+                        message = "正在下载 ${options.modelSize.fileName} …",
+                        downloadPercent = 0,
+                    ),
+                )
+                store.download(options.modelSize, { downloaded, total ->
+                    val percent = if (total > 0) ((downloaded * 100) / total).toInt().coerceIn(0, 99) else 0
+                    onProgress(
+                        ConversionProgress(
+                            phase = ConversionProgress.Phase.DOWNLOAD,
+                            message = "正在下载模型 ${percent}%",
+                            downloadPercent = percent,
+                        ),
+                    )
+                }, isCancelled)
+            }
         }
         val modelFile = store.resolveExisting(options.modelSize)
             ?: throw IllegalStateException("模型文件缺失，请先下载 Depth Anything V2 权重")

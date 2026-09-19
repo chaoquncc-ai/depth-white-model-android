@@ -15,11 +15,14 @@ captures/
 *.orig
 .externalNativeBuild/
 
-# ONNX weights (download on first use)
+# ONNX weights — never commit (~100MB Small; Base/Large even larger).
+# CI downloads Small into assets before assembleDebug.
 models/*.onnx
 models/*.onnx.part
 app/src/main/assets/models/*.onnx
+app/src/main/assets/models/*.onnx.part
 app/src/main/assets/models/*.onnx.data
+app/src/main/assets/models/*.asset.part
 
 # Kotlin / Gradle
 .kotlin/

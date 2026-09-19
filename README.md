@@ -1,4 +1,4 @@
-# 白模转换（Depth Anything V2 for Android）
+# 白模构建（Depth Anything V2 for Android）
 
 在手机上把视频转成灰度深度图（白模风格）。使用 **Kotlin + Jetpack Compose**，端侧 **ONNX Runtime** 运行 Depth Anything V2，逐帧推理，不把整段视频载入内存。
 
@@ -7,7 +7,7 @@
 ## 功能
 
 - 从相册或文件选择视频（MP4 / MOV）
-- 模型：Small（默认，约 100MB）/ Base（约 390MB）/ Large（约 1.3GB，界面保留但建议不要在中端机使用）
+- 模型：Small（默认，**APK 已内置**，约 100MB）/ Base（约 390MB，按需下载）/ Large（约 1.3GB，界面保留但建议不要在中端机使用）
 - 推理分辨率：省显存 384（默认）/ 平衡 518 / 较高 756 —— **先缩小再推理**
 - 导出分辨率：360p / 480p（默认）/ 640 / 原始 / 自定义最大宽度
 - 输出画质：极小 / 小（默认）/ 中
@@ -19,7 +19,7 @@
 - 通知栏前台任务，进度显示「第 N / M 帧」
 - OOM 时给出中文说明（改 Small、384、480p、缩短时长）
 
-权重 **不进 Git**。首次使用自动下载（进度条），也可用脚本预下载。
+**Debug APK 内置 Depth Anything V2 Small**，默认模型首次启动不需要联网。Base / Large 仍按需下载。权重文件不进 Git（约 100MB），由 CI 在 `assembleDebug` 前拉取到 `app/src/main/assets/models/`。
 
 ## 环境要求
 
@@ -41,6 +41,15 @@
 sdk.dir=/home/YOU/Android/Sdk
 ```
 
+本地若希望 Debug 包也带上 Small，先执行：
+
+```bash
+chmod +x scripts/download-models.sh
+./scripts/download-models.sh small --assets
+```
+
+没有该步骤时 `./gradlew assembleDebug` 仍可编译，只是 APK 不含默认权重，首次转换会走网络下载。
+
 ## 命令行编译 Debug APK
 
 ```bash
@@ -60,7 +69,7 @@ app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Debug 包名为 `com.chaoqun.depthwhite.debug`。
+Debug 包名为 `com.chaoqun.depthwhite.debug`。启动器名称与通知渠道为 **白模构建**。
 
 单元测试：
 
@@ -68,32 +77,39 @@ Debug 包名为 `com.chaoqun.depthwhite.debug`。
 ./gradlew testDebugUnitTest
 ```
 
-GitHub Actions 会在 push/PR 时执行 `assembleDebug`，并把 APK 作为 artifact 上传。
+GitHub Actions 会在 push/PR 时：
 
-## 模型下载
+1. 下载 Depth Anything V2 **Small** ONNX 到 `app/src/main/assets/models/`（不提交该文件）
+2. 执行单元测试与 `assembleDebug`
+3. 检查 APK 内含 Small 权重，并把 APK 作为 artifact 上传
+
+## 模型
 
 默认使用 Hugging Face 上的 Depth Anything V2 ONNX（Small / Base / Large 同源导出）：
 
-- Small：`depth_anything_v2_vits.onnx`（约 100MB，Apache-2.0）
-- Base：`depth_anything_v2_vitb.onnx`（约 390MB，CC-BY-NC-4.0）
-- Large：`depth_anything_v2_vitl.onnx`（约 1.3GB，CC-BY-NC-4.0）
+- Small：`depth_anything_v2_vits.onnx`（约 100MB，Apache-2.0）— **随 APK 分发**
+- Base：`depth_anything_v2_vitb.onnx`（约 390MB，CC-BY-NC-4.0）— 按需下载
+- Large：`depth_anything_v2_vitl.onnx`（约 1.3GB，CC-BY-NC-4.0）— 按需下载
 
-应用会依次尝试 `huggingface.co` 与 `hf-mirror.com`。也可预下载：
+应用启动时若 assets 里有 Small，会拷到内部 `files/models/`，**跳过网络下载**。Base / Large 会依次尝试 `huggingface.co` 与 `hf-mirror.com`。
+
+本地预下载（不打进 APK）：
 
 ```bash
 chmod +x scripts/download-models.sh
 ./scripts/download-models.sh small
+./scripts/download-models.sh base   # 可选
 ```
 
-文件落在仓库 `models/`（已 gitignore）。可选复制进 APK 资源：
+文件落在仓库 `models/`（已 gitignore）。把 Small 打进 APK：
 
 ```bash
-cp models/depth_anything_v2_vits.onnx app/src/main/assets/models/
+./scripts/download-models.sh small --assets
 ```
 
-（会显著增大 APK，一般不建议。）应用启动时若 assets 里有权重，会拷到内部 `files/models/`。
+请勿把 `*.onnx` 提交到 Git。若必须离线构建且无法访问 Hugging Face，可临时把 Small 放到 `app/src/main/assets/models/`（仍建议保持 gitignore，用 CI 拉取）。不要打包 Base / Large。
 
-未下载模型时界面会提示「模型未下载」，点「开始转换」会先下载再推理。
+未内置且未下载时，界面会提示「模型未下载」，点「开始转换」会先下载再推理。
 
 ## 内存建议（避免 OOM 闪退）
 
@@ -117,7 +133,7 @@ cp models/depth_anything_v2_vits.onnx app/src/main/assets/models/
 
 ## 权限
 
-运行时申请：读取视频（API 33+ `READ_MEDIA_VIDEO`，更早为存储权限）以及通知权限（用于转换进度）。选相册视频走系统选择器，通常不需要额外存储权限即可读取该文件。
+运行时申请：读取视频（API 33+ `READ_MEDIA_VIDEO`，更早为存储权限）以及通知权限（用于转换进度）。选相册视频走系统选择器，通常不需要额外存储权限即可读取该文件。默认 Small 不需要网络；仅在下载 Base / Large 或 APK 未打入 Small 时才访问网络。
 
 ## 技术栈
 
