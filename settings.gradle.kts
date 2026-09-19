@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "DepthWhiteModel"
 include(":app")
+include(":remote")
