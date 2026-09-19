@@ -1,11 +1,13 @@
 package com.chaoqun.depthwhite.ml
 
 import android.content.Context
+import android.util.Log
 import com.chaoqun.depthwhite.core.ModelSize
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ModelStore(private val context: Context) {
 
@@ -14,22 +16,39 @@ class ModelStore(private val context: Context) {
     fun modelFile(size: ModelSize): File = File(modelsDir(), size.fileName)
 
     fun isReady(size: ModelSize): Boolean {
-        val file = resolveExisting(size) ?: return false
-        return file.length() > minAcceptableBytes(size)
+        if (isOnDisk(size)) return true
+        // Bundled Small counts as ready: convert copies it off the UI thread.
+        return hasBundledAsset(size)
+    }
+
+    fun isOnDisk(size: ModelSize): Boolean {
+        val file = modelFile(size)
+        return file.exists() && file.length() > minAcceptableBytes(size)
+    }
+
+    fun hasBundledAsset(size: ModelSize): Boolean {
+        val files = runCatching { context.assets.list(ASSET_DIR) }.getOrNull() ?: return false
+        if (size.fileName !in files) return false
+        val length = bundledAssetLength(size)
+        // openFd fails for compressed assets; still treat a listed ONNX as bundled.
+        return length < 0L || length > minAcceptableBytes(size)
+    }
+
+    /**
+     * If the ONNX is packaged in APK assets, copy it to internal storage.
+     * Safe to call repeatedly; skips when the disk copy is already valid.
+     */
+    fun ensureFromAssets(size: ModelSize): File? {
+        synchronized(assetCopyLock) {
+            if (isOnDisk(size)) return modelFile(size)
+            if (!hasBundledAsset(size)) return null
+            return copyAssetToDisk(size)
+        }
     }
 
     fun resolveExisting(size: ModelSize): File? {
-        val disk = modelFile(size)
-        if (disk.exists() && disk.length() > minAcceptableBytes(size)) return disk
-        val assetName = "models/${size.fileName}"
-        return try {
-            context.assets.open(assetName).use { input ->
-                FileOutputStream(disk).use { output -> input.copyTo(output) }
-            }
-            disk.takeIf { it.exists() && it.length() > minAcceptableBytes(size) }
-        } catch (_: Exception) {
-            null
-        }
+        if (isOnDisk(size)) return modelFile(size)
+        return ensureFromAssets(size)
     }
 
     fun deletePartial(size: ModelSize) {
@@ -37,13 +56,17 @@ class ModelStore(private val context: Context) {
         if (part.exists()) part.delete()
     }
 
+    /**
+     * Prefer a bundled asset (Small) so first launch does not need the network.
+     * Base / Large still download on demand.
+     */
     fun download(
         size: ModelSize,
         onProgress: (downloaded: Long, total: Long) -> Unit,
         isCancelled: () -> Boolean = { false },
     ): File {
+        resolveExisting(size)?.let { return it }
         val dest = modelFile(size)
-        if (dest.exists() && dest.length() > minAcceptableBytes(size)) return dest
         val part = File(modelsDir(), size.fileName + ".part")
         var lastError: Exception? = null
         for (url in size.downloadUrls) {
@@ -58,6 +81,46 @@ class ModelStore(private val context: Context) {
             }
         }
         throw lastError ?: IllegalStateException("模型下载失败")
+    }
+
+    private fun bundledAssetLength(size: ModelSize): Long {
+        return try {
+            context.assets.openFd(size.assetPath).use { it.length }
+        } catch (_: Exception) {
+            -1L
+        }
+    }
+
+    private fun copyAssetToDisk(size: ModelSize): File? {
+        val dest = modelFile(size)
+        val part = File(modelsDir(), size.fileName + ".asset.part")
+        return try {
+            context.assets.open(size.assetPath).use { input ->
+                FileOutputStream(part).use { output ->
+                    val buffer = ByteArray(256 * 1024)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        output.write(buffer, 0, read)
+                    }
+                    output.flush()
+                }
+            }
+            if (part.length() < minAcceptableBytes(size)) {
+                part.delete()
+                return null
+            }
+            if (dest.exists()) dest.delete()
+            if (!part.renameTo(dest)) {
+                part.copyTo(dest, overwrite = true)
+                part.delete()
+            }
+            dest.takeIf { it.exists() && it.length() > minAcceptableBytes(size) }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to copy bundled ${size.fileName}", e)
+            part.delete()
+            null
+        }
     }
 
     private fun downloadUrl(
@@ -119,5 +182,28 @@ class ModelStore(private val context: Context) {
         }
     }
 
-    private fun minAcceptableBytes(size: ModelSize): Long = (size.approxBytes * 0.6).toLong()
+    companion object {
+        const val ASSET_DIR = "models"
+        private const val TAG = "ModelStore"
+        private val warmupStarted = AtomicBoolean(false)
+        private val assetCopyLock = Any()
+
+        fun minAcceptableBytes(size: ModelSize): Long = (size.approxBytes * 0.6).toLong()
+
+        /** Copy bundled Small off the main thread so first convert is offline-ready. */
+        fun warmupBundledSmall(context: Context) {
+            if (!warmupStarted.compareAndSet(false, true)) return
+            Thread({
+                runCatching { ModelStore(context.applicationContext).ensureFromAssets(ModelSize.SMALL) }
+            }, "model-asset-warmup").apply {
+                isDaemon = true
+                uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _, t ->
+                    Log.w(TAG, "warmup failed", t)
+                }
+                start()
+            }
+        }
+    }
+
+    private fun minAcceptableBytes(size: ModelSize): Long = Companion.minAcceptableBytes(size)
 }

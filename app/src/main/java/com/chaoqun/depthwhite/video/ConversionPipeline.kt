@@ -33,27 +33,46 @@ class ConversionPipeline(private val context: Context) {
         isCancelled: () -> Boolean,
     ): Result {
         val store = ModelStore(context)
-        if (!store.isReady(options.modelSize)) {
-            onProgress(
-                ConversionProgress(
-                    phase = ConversionProgress.Phase.DOWNLOAD,
-                    message = "正在下载 ${options.modelSize.fileName} …",
-                    downloadPercent = 0,
-                ),
-            )
-            store.download(options.modelSize, { downloaded, total ->
-                val percent = if (total > 0) ((downloaded * 100) / total).toInt().coerceIn(0, 99) else 0
+        if (!store.isOnDisk(options.modelSize)) {
+            if (store.hasBundledAsset(options.modelSize)) {
                 onProgress(
                     ConversionProgress(
                         phase = ConversionProgress.Phase.DOWNLOAD,
-                        message = "正在下载模型 ${percent}%",
-                        downloadPercent = percent,
+                        message = "正在从 APK 复制内置 ${options.modelSize.fileName} …",
                     ),
                 )
-            }, isCancelled)
+                store.ensureFromAssets(options.modelSize)
+                    ?: throw IllegalStateException("无法从 APK 复制内置模型，请重试或改用网络下载。")
+            } else {
+                onProgress(
+                    ConversionProgress(
+                        phase = ConversionProgress.Phase.DOWNLOAD,
+                        message = "正在下载 ${options.modelSize.fileName} …",
+                        downloadPercent = 0,
+                    ),
+                )
+                try {
+                    store.download(options.modelSize, { downloaded, total ->
+                        val percent = if (total > 0) ((downloaded * 100) / total).toInt().coerceIn(0, 99) else 0
+                        onProgress(
+                            ConversionProgress(
+                                phase = ConversionProgress.Phase.DOWNLOAD,
+                                message = "正在下载模型 ${percent}%",
+                                downloadPercent = percent,
+                            ),
+                        )
+                    }, isCancelled)
+                } catch (ie: InterruptedException) {
+                    throw ie
+                } catch (t: Throwable) {
+                    throw IllegalStateException("模型下载失败：${Errors.chinese(t)}", t)
+                }
+            }
         }
         val modelFile = store.resolveExisting(options.modelSize)
-            ?: throw IllegalStateException("模型文件缺失，请先下载 Depth Anything V2 权重")
+            ?: throw IllegalStateException(
+                "模型文件缺失。Small 应已随 APK 内置；Base/Large 需联网下载后再试。",
+            )
 
         onProgress(
             ConversionProgress(
@@ -81,15 +100,20 @@ class ConversionPipeline(private val context: Context) {
         val rangeState = RangeEmaState()
 
         try {
-            engine = DepthAnythingEngine(modelFile.absolutePath, preferNnapi = true).also { it.prepare() }
-            engineUsedNnapi = engine.usingNnapi
+            val loaded = try {
+                DepthAnythingEngine(modelFile.absolutePath, preferNnapi = false).also { it.prepare() }
+            } catch (t: Throwable) {
+                throw IllegalStateException("模型加载失败（CPU）：${Errors.chinese(t)}", t)
+            }
+            engine = loaded
+            engineUsedNnapi = loaded.usingNnapi
             decoder = FrameDecoder(context, input)
             val meta = decoder.meta
             val limitUs = VideoSizing.maxDurationUs(meta.durationUs, options.durationLimit)
             val totalGuess = VideoSizing.estimatedFrameCount(limitUs.takeIf { it < Long.MAX_VALUE } ?: meta.durationUs, meta.fps)
             val (outW, outH) = options.outputSize(meta.displayWidth, meta.displayHeight)
-            val requested = options.inferSize(meta.displayWidth, meta.displayHeight, engine.forceSquare)
-            val (inferW, inferH) = engine.resolveInputSize(requested.first, requested.second)
+            val requested = options.inferSize(meta.displayWidth, meta.displayHeight, loaded.forceSquare)
+            val (inferW, inferH) = loaded.resolveInputSize(requested.first, requested.second)
 
             inferBitmap = Bitmap.createBitmap(inferW, inferH, Bitmap.Config.ARGB_8888)
             outBitmap = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)

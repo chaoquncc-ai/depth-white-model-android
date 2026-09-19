@@ -2,6 +2,7 @@ package com.chaoqun.depthwhite.work
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -31,48 +32,56 @@ class ConversionWorker(
     )
 
     override suspend fun doWork(): Result {
-        setForeground(getForegroundInfo())
-        val uriStr = inputData.getString(WorkKeys.INPUT_URI)
-            ?: return Result.failure(workDataOf(WorkKeys.ERROR to "请先选择视频"))
-        val uri = Uri.parse(uriStr)
-        val options = ConvertOptions(
-            modelSize = enumValueOf(inputData.getString(WorkKeys.MODEL) ?: ModelSize.SMALL.name),
-            inferPreset = enumValueOf(inputData.getString(WorkKeys.INFER) ?: InferPreset.SAVE.name),
-            exportMode = enumValueOf(inputData.getString(WorkKeys.EXPORT) ?: ExportMode.P480.name),
-            customMaxWidth = inputData.getInt(WorkKeys.CUSTOM_WIDTH, 720),
-            quality = enumValueOf(inputData.getString(WorkKeys.QUALITY) ?: QualityLevel.SMALL.name),
-            invertDepth = inputData.getBoolean(WorkKeys.INVERT, false),
-            emaEnabled = inputData.getBoolean(WorkKeys.EMA, true),
-            emaAlpha = inputData.getFloat(WorkKeys.EMA_ALPHA, 0.45f),
-            keepAudio = inputData.getBoolean(WorkKeys.KEEP_AUDIO, true),
-            durationLimit = enumValueOf(inputData.getString(WorkKeys.DURATION) ?: DurationLimit.S10.name),
-        )
         return try {
+            try {
+                trySetForeground(getForegroundInfo())
+            } catch (t: Throwable) {
+                Log.w(TAG, "getForegroundInfo failed", t)
+            }
+            val uriStr = inputData.getString(WorkKeys.INPUT_URI)
+                ?: return Result.failure(workDataOf(WorkKeys.ERROR to "请先选择视频"))
+            val uri = Uri.parse(uriStr)
+            val options = ConvertOptions(
+                modelSize = enumValueOf(inputData.getString(WorkKeys.MODEL) ?: ModelSize.SMALL.name),
+                inferPreset = enumValueOf(inputData.getString(WorkKeys.INFER) ?: InferPreset.SAVE.name),
+                exportMode = enumValueOf(inputData.getString(WorkKeys.EXPORT) ?: ExportMode.P480.name),
+                customMaxWidth = inputData.getInt(WorkKeys.CUSTOM_WIDTH, 720),
+                quality = enumValueOf(inputData.getString(WorkKeys.QUALITY) ?: QualityLevel.SMALL.name),
+                invertDepth = inputData.getBoolean(WorkKeys.INVERT, false),
+                emaEnabled = inputData.getBoolean(WorkKeys.EMA, true),
+                emaAlpha = inputData.getFloat(WorkKeys.EMA_ALPHA, 0.45f),
+                keepAudio = inputData.getBoolean(WorkKeys.KEEP_AUDIO, true),
+                durationLimit = enumValueOf(inputData.getString(WorkKeys.DURATION) ?: DurationLimit.S10.name),
+            )
             val result = withContext(Dispatchers.Default) {
                 ConversionPipeline(applicationContext).convert(
                     input = uri,
                     options = options,
                     onProgress = { progress ->
-                        setProgressAsync(
-                            workDataOf(
-                                WorkKeys.PHASE to progress.phase.name,
-                                WorkKeys.FRAME to progress.frame,
-                                WorkKeys.TOTAL to progress.total,
-                                WorkKeys.MESSAGE to progress.message,
-                                WorkKeys.DOWNLOAD to progress.downloadPercent,
-                            ),
-                        )
-                        val max = progress.total.coerceAtLeast(0)
-                        val current = progress.frame.coerceAtLeast(0)
-                        setForegroundAsync(
-                            NotificationHelper.foregroundInfo(
-                                applicationContext,
-                                applicationContext.getString(com.chaoqun.depthwhite.R.string.notification_title),
-                                progress.message.ifBlank { "第 $current / $max 帧" },
-                                current,
-                                max,
-                            ),
-                        )
+                        try {
+                            setProgressAsync(
+                                workDataOf(
+                                    WorkKeys.PHASE to progress.phase.name,
+                                    WorkKeys.FRAME to progress.frame,
+                                    WorkKeys.TOTAL to progress.total,
+                                    WorkKeys.MESSAGE to progress.message,
+                                    WorkKeys.DOWNLOAD to progress.downloadPercent,
+                                ),
+                            )
+                            val max = progress.total.coerceAtLeast(0)
+                            val current = progress.frame.coerceAtLeast(0)
+                            trySetForegroundAsync(
+                                NotificationHelper.foregroundInfo(
+                                    applicationContext,
+                                    applicationContext.getString(com.chaoqun.depthwhite.R.string.notification_title),
+                                    progress.message.ifBlank { "第 $current / $max 帧" },
+                                    current,
+                                    max,
+                                ),
+                            )
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "progress update skipped", t)
+                        }
                     },
                     isCancelled = { isStopped },
                 )
@@ -88,5 +97,9 @@ class ConversionWorker(
         } catch (t: Throwable) {
             Result.failure(workDataOf(WorkKeys.ERROR to Errors.chinese(t)))
         }
+    }
+
+    companion object {
+        private const val TAG = "ConversionWorker"
     }
 }

@@ -19,16 +19,19 @@ object NotificationHelper {
     const val CLIP_ID = 42
 
     fun ensureChannel(context: Context) {
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            context.getString(R.string.notification_channel),
-            NotificationManager.IMPORTANCE_LOW,
-        ).apply {
-            description = context.getString(R.string.notification_channel_desc)
-            setShowBadge(false)
+        try {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.notification_channel),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = context.getString(R.string.notification_channel_desc)
+                setShowBadge(false)
+            }
+            manager.createNotificationChannel(channel)
+        } catch (_: Throwable) {
         }
-        manager.createNotificationChannel(channel)
     }
 
     fun notification(context: Context, title: String, text: String, progress: Int, max: Int): Notification {

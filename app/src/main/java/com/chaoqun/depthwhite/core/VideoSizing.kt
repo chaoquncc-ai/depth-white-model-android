@@ -119,6 +119,13 @@ enum class ModelSize {
             LARGE -> "depth_anything_v2_vitl.onnx"
         }
 
+    /** Relative path inside APK assets. Only Small is packaged; Base/Large download on demand. */
+    val assetPath: String
+        get() = "models/$fileName"
+
+    val bundledInApk: Boolean
+        get() = this == SMALL
+
     val approxBytes: Long
         get() = when (this) {
             SMALL -> 101L * 1024 * 1024

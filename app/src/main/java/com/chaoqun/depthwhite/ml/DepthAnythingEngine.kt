@@ -12,7 +12,8 @@ import kotlin.math.max
 
 class DepthAnythingEngine(
     private val modelPath: String,
-    private val preferNnapi: Boolean = true,
+    // NNAPI EP can SIGSEGV on mid-range SoCs; CPU is the supported default.
+    private val preferNnapi: Boolean = false,
 ) : AutoCloseable {
 
     private val env: OrtEnvironment = OrtEnvironment.getEnvironment()

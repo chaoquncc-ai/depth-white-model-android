@@ -1,6 +1,7 @@
 package com.chaoqun.depthwhite.work
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -27,17 +28,21 @@ class ClipWorker(
     )
 
     override suspend fun doWork(): Result {
-        setForeground(getForegroundInfo())
-        val inputPath = inputData.getString(WorkKeys.CLIP_INPUT)
-            ?: return Result.failure(workDataOf(WorkKeys.ERROR to "没有可裁剪的输出视频"))
-        val startMs = inputData.getLong(WorkKeys.CLIP_START_MS, 0L)
-        val durationMs = inputData.getLong(WorkKeys.CLIP_DURATION_MS, 5_000L)
-        val input = File(inputPath)
-        if (!input.exists()) {
-            return Result.failure(workDataOf(WorkKeys.ERROR to "原转换文件已丢失，请重新转换"))
-        }
-        val output = File(input.parentFile, "clip_${System.currentTimeMillis()}.mp4")
         return try {
+            try {
+                trySetForeground(getForegroundInfo())
+            } catch (t: Throwable) {
+                Log.w(TAG, "getForegroundInfo failed", t)
+            }
+            val inputPath = inputData.getString(WorkKeys.CLIP_INPUT)
+                ?: return Result.failure(workDataOf(WorkKeys.ERROR to "没有可裁剪的输出视频"))
+            val startMs = inputData.getLong(WorkKeys.CLIP_START_MS, 0L)
+            val durationMs = inputData.getLong(WorkKeys.CLIP_DURATION_MS, 5_000L)
+            val input = File(inputPath)
+            if (!input.exists()) {
+                return Result.failure(workDataOf(WorkKeys.ERROR to "原转换文件已丢失，请重新转换"))
+            }
+            val output = File(input.parentFile, "clip_${System.currentTimeMillis()}.mp4")
             withContext(Dispatchers.Default) {
                 VideoClipper.clipFile(
                     input = input,
@@ -58,5 +63,9 @@ class ClipWorker(
         } catch (t: Throwable) {
             Result.failure(workDataOf(WorkKeys.ERROR to Errors.chinese(t)))
         }
+    }
+
+    companion object {
+        private const val TAG = "ClipWorker"
     }
 }
