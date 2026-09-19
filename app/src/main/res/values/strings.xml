@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">白模转换</string>
+    <string name="app_subtitle">本地 Depth Anything V2 视频转深度</string>
+    <string name="notification_channel">白模转换</string>
+    <string name="notification_channel_desc">长时间视频转深度任务进度</string>
+    <string name="notification_title">正在生成白模视频</string>
+    <string name="notification_preparing">准备中…</string>
+    <string name="notification_clip_title">正在导出片段</string>
+    <string name="notification_clip_running">裁剪输出视频…</string>
+</resources>
