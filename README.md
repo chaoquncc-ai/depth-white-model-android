@@ -4,6 +4,8 @@
 
 功能对齐 Windows Gradio 转换器，并针对中端机做了显存/内存控制。
 
+另有独立应用 **白模远端**：手机只当 Gradio 遥控（全屏 WebView），深度转换在 Windows 电脑上运行。见下文「白模远端」。
+
 ## 功能
 
 - 从相册或文件选择视频（MP4 / MOV）
@@ -71,6 +73,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 Debug 包名为 `com.chaoqun.depthwhite.debug`。启动器名称与通知渠道为 **白模构建**。
 
+`./gradlew assembleDebug` 现在会同时编译本地 `:app` 与远端 `:remote`。只编远端请用 `./gradlew :remote:assembleDebug`。
+
 单元测试：
 
 ```bash
@@ -80,8 +84,9 @@ Debug 包名为 `com.chaoqun.depthwhite.debug`。启动器名称与通知渠道�
 GitHub Actions 会在 push/PR 时：
 
 1. 下载 Depth Anything V2 **Small** ONNX 到 `app/src/main/assets/models/`（不提交该文件）
-2. 执行单元测试与 `assembleDebug`
-3. 检查 APK 内含 Small 权重，并把 APK 作为 artifact 上传
+2. 执行单元测试与 `assembleDebug`（含本地 `:app` 与远端 `:remote`）
+3. 检查 APK 内含 Small 权重，并把本地 APK 作为 artifact 上传
+4. 额外产出并上传远端 artifact **`baimo-remote-debug.apk`**（不含 ONNX）
 
 ## 模型
 
@@ -110,6 +115,36 @@ chmod +x scripts/download-models.sh
 请勿把 `*.onnx` 提交到 Git。若必须离线构建且无法访问 Hugging Face，可临时把 Small 放到 `app/src/main/assets/models/`（仍建议保持 gitignore，用 CI 拉取）。不要打包 Base / Large。
 
 未内置且未下载时，界面会提示「模型未下载」，点「开始转换」会先下载再推理。
+
+## 白模远端（手机当遥控，转换在电脑上）
+
+独立 Gradle 模块 `:remote`，包名 `com.chaoqun.baimo.remote`，启动器名称 **白模远端**。与本地 ONNX 应用 `:app`（白模构建）互不影响，可同时安装。
+
+手机只显示电脑上的 Gradio 页面：选视频、看进度、下载结果。推理不在手机上跑，APK 也不包含 ONNX。
+
+默认服务器：`http://103.47.82.57:47860`（设置里可改，会记住）。**电脑端必须保持 Gradio + frp 运行**，否则手机打不开页面，也无法转换。
+
+### 编译 / 安装
+
+```bash
+chmod +x gradlew
+./gradlew :remote:assembleDebug
+adb install -r remote/build/outputs/apk/debug/remote-debug.apk
+```
+
+Debug 包名为 `com.chaoqun.baimo.remote.debug`。GitHub Actions 会把同一份包上传为 artifact **`baimo-remote-debug.apk`**。
+
+在 GitHub 仓库的 Actions 一次成功构建里下载该 artifact，传到手机后允许「未知来源」安装即可。本包允许明文 HTTP，以便访问 `http://` 的 frp 地址。
+
+### 使用
+
+1. 在 Windows 上启动 Gradio 转换器，并用 frp 暴露到手机能访问的地址（默认如上）。
+2. 打开「白模远端」。需要改地址时点右上角设置，可「恢复默认地址」。
+3. 点 Gradio 的上传按钮：会走 **系统相册 / 照片选择器（仅视频）**，而不是先弹出文件管理器。相册选择器不可用时，才回退到 `ACTION_PICK` / `ACTION_GET_CONTENT`（仍然限制 `video/*`）。
+4. 转换在电脑上完成后，点下载。结果会进系统「下载」或「影片」（`Movies`/`Download` 下的 `BaiMoRemote/`），并出现通知。
+5. 菜单提供刷新、在浏览器打开、保持屏幕常亮（默认开）、清除缓存。
+
+设置页会说明：计算在 PC 上，本应用不做端侧推理。
 
 ## 内存建议（避免 OOM 闪退）
 

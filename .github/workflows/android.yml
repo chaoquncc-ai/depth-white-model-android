@@ -32,10 +32,10 @@ jobs:
         run: ./scripts/download-models.sh small --assets
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: ./gradlew :app:testDebugUnitTest :remote:testDebugUnitTest --stacktrace
 
-      - name: Assemble debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Assemble debug APKs
+        run: ./gradlew :app:assembleDebug :remote:assembleDebug --stacktrace
 
       - name: Verify APK contains bundled Small ONNX and display name
         run: |
@@ -56,9 +56,41 @@ jobs:
           fi
           echo "APK checks passed"
 
+      - name: Verify remote APK (album picker, no ONNX, display name)
+        run: |
+          set -euo pipefail
+          apk="remote/build/outputs/apk/debug/remote-debug.apk"
+          test -f "$apk"
+          if unzip -l "$apk" | grep -qiE 'onnx'; then
+            echo "Remote APK must not contain ONNX" >&2
+            unzip -l "$apk" | grep -i onnx
+            exit 1
+          fi
+          grep -F "PickVisualMedia.VideoOnly" remote/src/main/java/com/chaoqun/baimo/remote/picker/GalleryVideoPicker.kt
+          grep -F "onShowFileChooser" remote/src/main/java/com/chaoqun/baimo/remote/web/RemoteChromeClient.kt
+          grep -F "ACTION_PICK" remote/src/main/java/com/chaoqun/baimo/remote/picker/GalleryVideoPicker.kt
+          cp "$apk" baimo-remote-debug.apk
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          aapt="$(ls -1 "$sdk"/build-tools/*/aapt 2>/dev/null | tail -n1 || true)"
+          if [[ -n "$aapt" && -x "$aapt" ]]; then
+            "$aapt" dump badging "$apk" | tee /tmp/remote-apk-badging.txt
+            grep -F "application-label:'白模远端'" /tmp/remote-apk-badging.txt
+            grep -F "package: name='com.chaoqun.baimo.remote.debug'" /tmp/remote-apk-badging.txt
+          else
+            echo "aapt not found; skipping remote launcher-label check"
+          fi
+          echo "Remote APK checks passed"
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload remote debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: baimo-remote-debug.apk
+          path: baimo-remote-debug.apk
           if-no-files-found: error

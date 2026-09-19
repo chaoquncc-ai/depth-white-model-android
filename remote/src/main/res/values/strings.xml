@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">白模远端</string>
+    <string name="app_subtitle">手机当遥控，转换在电脑上</string>
+    <string name="settings">设置</string>
+    <string name="reload">刷新</string>
+    <string name="open_browser">在浏览器打开</string>
+    <string name="keep_screen_on">保持屏幕常亮</string>
+    <string name="clear_cache">清除缓存并刷新</string>
+    <string name="server_url">服务器地址</string>
+    <string name="save_url">保存并打开</string>
+    <string name="reset_default">恢复默认地址</string>
+    <string name="compute_note">深度转换在 Windows 电脑上的 Gradio 中运行，本应用不在手机上做 ONNX 推理。请保持电脑端 Gradio 与 frp 在线，否则无法打开页面或完成转换。</string>
+    <string name="page_error">无法连接服务器。请确认电脑上的 Gradio 与 frp 正在运行，并检查设置中的地址。</string>
+    <string name="retry">重试</string>
+    <string name="download_started">已开始下载，完成后可在「下载」或「影片」中查看</string>
+    <string name="download_failed">下载失败</string>
+    <string name="download_channel">白模远端下载</string>
+    <string name="download_channel_desc">主机转换结果保存到下载/影片时的通知</string>
+    <string name="download_complete">结果已保存</string>
+    <string name="more">更多</string>
+    <string name="close">关闭</string>
+    <string name="keep_screen_on_on">屏幕常亮：开</string>
+    <string name="keep_screen_on_off">屏幕常亮：关</string>
+</resources>
