@@ -18,8 +18,12 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # v3 defaulted to `sdkmanager tools`, which Google no longer publishes.
+      # v4 installs current cmdline-tools; packages must not include `tools`.
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools build-tools;35.0.0 platforms;android-35"
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
