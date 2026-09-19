@@ -1,10 +1,32 @@
 *.apk
 *.aab
+*.ap_
+*.dex
 .gradle/
 local.properties
 .idea/
 *.iml
+.DS_Store
 build/
 captures/
 .cxx/
 *.hprof
+*.log
+*.orig
+.externalNativeBuild/
+
+# ONNX weights (download on first use)
+models/*.onnx
+models/*.onnx.part
+app/src/main/assets/models/*.onnx
+app/src/main/assets/models/*.onnx.data
+
+# Kotlin / Gradle
+.kotlin/
+kotlin-js-store/
+
+# OS / editor
+*.swp
+*~
+.vscode/
+.fleet/
