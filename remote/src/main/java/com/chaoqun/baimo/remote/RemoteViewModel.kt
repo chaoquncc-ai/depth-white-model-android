@@ -27,11 +27,11 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
 
     var showSettings by mutableStateOf(false)
 
-    fun setProgress(value: Int) {
+    fun updateProgress(value: Int) {
         progress = value
     }
 
-    fun setPageError(message: String?) {
+    fun updatePageError(message: String?) {
         pageError = message
     }
 
@@ -43,7 +43,7 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
         snackbar = null
     }
 
-    fun setKeepScreenOn(enabled: Boolean) {
+    fun updateKeepScreenOn(enabled: Boolean) {
         prefs.keepScreenOn = enabled
         keepScreenOn = enabled
     }

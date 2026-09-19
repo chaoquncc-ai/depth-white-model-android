@@ -115,7 +115,7 @@ fun RemoteScreen(
                             },
                             onClick = {
                                 menuOpen = false
-                                vm.setKeepScreenOn(!vm.keepScreenOn)
+                                vm.updateKeepScreenOn(!vm.keepScreenOn)
                             },
                         )
                         DropdownMenuItem(
@@ -162,7 +162,7 @@ fun RemoteScreen(
                     keepScreenOn = vm.keepScreenOn,
                     onSave = onSaveUrl,
                     onReset = onResetUrl,
-                    onKeepScreenOn = vm::setKeepScreenOn,
+                    onKeepScreenOn = vm::updateKeepScreenOn,
                     onDismiss = { vm.showSettings = false },
                     modifier = Modifier
                         .align(Alignment.Center)

@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
 
     private fun loadServer(url: String) {
         webView?.loadUrl(url)
-        vm.setPageError(null)
+        vm.updatePageError(null)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -115,11 +115,11 @@ class MainActivity : ComponentActivity() {
             CookieManager.getInstance().setAcceptCookie(true)
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             webViewClient = RemoteWebViewClient(
-                onPageStarted = { vm.setPageError(null) },
-                onPageFinished = { vm.setProgress(100) },
-                onMainFrameError = { vm.setPageError(it ?: getString(R.string.page_error)) },
+                onPageStarted = { vm.updatePageError(null) },
+                onPageFinished = { vm.updateProgress(100) },
+                onMainFrameError = { vm.updatePageError(it ?: getString(R.string.page_error)) },
             )
-            webChromeClient = RemoteChromeClient(videoPicker) { vm.setProgress(it) }
+            webChromeClient = RemoteChromeClient(videoPicker) { vm.updateProgress(it) }
             setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
                 downloadSaver.enqueue(this, url, userAgent, contentDisposition, mimeType)
             }
