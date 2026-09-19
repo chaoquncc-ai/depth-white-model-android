@@ -7,7 +7,7 @@ import com.chaoqun.depthwhite.work.NotificationHelper
 class DepthWhiteApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        NotificationHelper.ensureChannel(this)
-        ModelStore.warmupBundledSmall(this)
+        runCatching { NotificationHelper.ensureChannel(this) }
+        runCatching { ModelStore.warmupBundledSmall(this) }
     }
 }

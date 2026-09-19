@@ -2,6 +2,7 @@ package com.chaoqun.depthwhite.ui
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -49,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -75,7 +77,10 @@ fun ConvertScreen(vm: ConvertViewModel = viewModel()) {
     ) { uri -> uri?.let { vm.onVideoPicked(context, it) } }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
-    ) { vm.startConvert() }
+    ) {
+        // Convert proceeds even if notifications were denied; Worker skips FGS in that case.
+        vm.startConvert()
+    }
 
     Scaffold(
         topBar = {
@@ -266,15 +271,12 @@ fun ConvertScreen(vm: ConvertViewModel = viewModel()) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = {
-                        val needed = buildList {
-                            if (Build.VERSION.SDK_INT >= 33) {
-                                add(Manifest.permission.POST_NOTIFICATIONS)
-                                add(Manifest.permission.READ_MEDIA_VIDEO)
-                            } else {
-                                add(Manifest.permission.READ_EXTERNAL_STORAGE)
-                            }
-                        }.toTypedArray()
-                        permissionLauncher.launch(needed)
+                        val needed = missingConvertPermissions(context)
+                        if (needed.isEmpty()) {
+                            vm.startConvert()
+                        } else {
+                            permissionLauncher.launch(needed)
+                        }
                     },
                     enabled = !state.running && !state.clipping,
                     modifier = Modifier.weight(1f),
@@ -386,4 +388,19 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
         Text(label, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChange)
     }
+}
+
+private fun missingConvertPermissions(context: android.content.Context): Array<String> {
+    val needed = mutableListOf<String>()
+    fun want(permission: String) {
+        if (ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
+            needed += permission
+        }
+    }
+    if (Build.VERSION.SDK_INT >= 33) {
+        want(Manifest.permission.POST_NOTIFICATIONS)
+    } else {
+        want(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+    return needed.toTypedArray()
 }

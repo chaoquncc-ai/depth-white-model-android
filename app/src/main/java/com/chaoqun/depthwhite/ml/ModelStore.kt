@@ -195,7 +195,13 @@ class ModelStore(private val context: Context) {
             if (!warmupStarted.compareAndSet(false, true)) return
             Thread({
                 runCatching { ModelStore(context.applicationContext).ensureFromAssets(ModelSize.SMALL) }
-            }, "model-asset-warmup").start()
+            }, "model-asset-warmup").apply {
+                isDaemon = true
+                uncaughtExceptionHandler = Thread.UncaughtExceptionHandler { _, t ->
+                    Log.w(TAG, "warmup failed", t)
+                }
+                start()
+            }
         }
     }
 
