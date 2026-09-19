@@ -9,7 +9,7 @@ import android.webkit.WebViewClient
 
 class RemoteWebViewClient(
     private val onPageStarted: () -> Unit,
-    private val onPageFinished: () -> Unit,
+    private val onPageFinished: (WebView) -> Unit,
     private val onMainFrameError: (String?) -> Unit,
 ) : WebViewClient() {
 
@@ -31,7 +31,7 @@ class RemoteWebViewClient(
     }
 
     override fun onPageFinished(view: WebView?, url: String?) {
-        onPageFinished()
+        if (view != null) onPageFinished(view)
     }
 
     override fun onReceivedError(

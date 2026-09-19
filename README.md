@@ -141,8 +141,8 @@ Debug 包名为 `com.chaoqun.baimo.remote.debug`。GitHub Actions 会把同一�
 1. 在 Windows 上启动 Gradio 转换器，并用 frp 暴露到手机能访问的地址（默认如上）。
 2. 打开「白模远端」。需要改地址时点右上角设置，可「恢复默认地址」。
 3. 点 Gradio 的上传按钮：会走 **系统相册 / 照片选择器（仅视频）**，而不是先弹出文件管理器。相册选择器不可用时，才回退到 `ACTION_PICK` / `ACTION_GET_CONTENT`（仍然限制 `video/*`）。
-4. 转换在电脑上完成后，点下载。结果会进系统「下载」或「影片」（`Movies`/`Download` 下的 `BaiMoRemote/`），并出现通知。
-5. 菜单提供刷新、在浏览器打开、保持屏幕常亮（默认开）、清除缓存。
+4. 转换在电脑上完成后，点底部 **「保存到相册」**。应用会从页面捕获 Gradio 结果视频（`<video src>`、`/file=` 或下载地址），写入系统 **相册/影片**（MediaStore Video，`Movies/BaiMoRemote`），并弹出提示。
+5. Gradio 自己的下载仍可用；菜单提供刷新、在浏览器打开、保持屏幕常亮（默认开）、清除缓存。
 
 设置页会说明：计算在 PC 上，本应用不做端侧推理。
 

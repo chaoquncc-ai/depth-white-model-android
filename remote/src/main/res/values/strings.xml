@@ -22,4 +22,10 @@
     <string name="close">关闭</string>
     <string name="keep_screen_on_on">屏幕常亮：开</string>
     <string name="keep_screen_on_off">屏幕常亮：关</string>
+    <string name="save_to_album">保存到相册</string>
+    <string name="save_to_album_en">Save to album</string>
+    <string name="save_to_album_saving">正在保存到相册…</string>
+    <string name="save_to_album_ok">已保存到相册，可在系统相册或「影片」中查看</string>
+    <string name="save_to_album_none">尚未发现结果视频。请等电脑端转换完成后再试</string>
+    <string name="save_to_album_failed">保存到相册失败</string>
 </resources>

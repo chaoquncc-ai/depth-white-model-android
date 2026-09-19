@@ -6,11 +6,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -57,6 +60,7 @@ fun RemoteScreen(
     onSaveUrl: (String) -> Unit,
     onResetUrl: () -> Unit,
     onApplyKeepScreenOn: (Boolean) -> Unit,
+    onSaveToAlbum: () -> Unit,
 ) {
     val snackbarHost = remember { SnackbarHostState() }
     var menuOpen by remember { mutableStateOf(false) }
@@ -119,6 +123,13 @@ fun RemoteScreen(
                             },
                         )
                         DropdownMenuItem(
+                            text = { Text(stringResource(R.string.save_to_album)) },
+                            onClick = {
+                                menuOpen = false
+                                onSaveToAlbum()
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text(stringResource(R.string.clear_cache)) },
                             onClick = {
                                 menuOpen = false
@@ -138,7 +149,9 @@ fun RemoteScreen(
         ) {
             AndroidView(
                 factory = { context -> ensureWebView(context) },
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 80.dp),
             )
             if (vm.progress in 1..99) {
                 LinearProgressIndicator(
@@ -156,6 +169,15 @@ fun RemoteScreen(
                     onRetry = onReload,
                 )
             }
+            SaveToAlbumBar(
+                enabled = !vm.savingToAlbum,
+                hasResult = vm.hasResultVideo,
+                onClick = onSaveToAlbum,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(12.dp),
+            )
             if (vm.showSettings) {
                 SettingsCard(
                     currentUrl = vm.serverUrl,
@@ -169,6 +191,30 @@ fun RemoteScreen(
                         .padding(16.dp),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SaveToAlbumBar(
+    enabled: Boolean,
+    hasResult: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+    ) {
+        Icon(Icons.Default.PhotoLibrary, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text(stringResource(R.string.save_to_album))
+            Text(
+                stringResource(R.string.save_to_album_en),
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
     }
 }

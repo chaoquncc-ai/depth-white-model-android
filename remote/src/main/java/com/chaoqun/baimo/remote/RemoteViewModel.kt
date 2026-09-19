@@ -27,12 +27,26 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
 
     var showSettings by mutableStateOf(false)
 
+    var hasResultVideo by mutableStateOf(false)
+        private set
+
+    var savingToAlbum by mutableStateOf(false)
+        private set
+
     fun updateProgress(value: Int) {
         progress = value
     }
 
     fun updatePageError(message: String?) {
         pageError = message
+    }
+
+    fun rememberResultAvailable(available: Boolean) {
+        hasResultVideo = available
+    }
+
+    fun updateSavingToAlbum(saving: Boolean) {
+        savingToAlbum = saving
     }
 
     fun showMessage(message: String) {
@@ -53,11 +67,13 @@ class RemoteViewModel(application: Application) : AndroidViewModel(application) 
         serverUrl = prefs.serverUrl
         pageError = null
         showSettings = false
+        hasResultVideo = false
     }
 
     fun resetUrl() {
         prefs.resetUrl()
         serverUrl = prefs.serverUrl
         pageError = null
+        hasResultVideo = false
     }
 }

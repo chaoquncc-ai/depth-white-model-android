@@ -28,7 +28,10 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicInteger
 
-class DownloadSaver(private val activity: ComponentActivity) {
+class DownloadSaver(
+    private val activity: ComponentActivity,
+    private val albumSaver: AlbumVideoSaver,
+) {
     val jsBridge = JsBridge()
 
     private var pending: (() -> Unit)? = null
@@ -55,6 +58,7 @@ class DownloadSaver(private val activity: ComponentActivity) {
         mimeType: String?,
     ) {
         val run = {
+            albumSaver.remember(url, mimeType, contentDisposition)
             when {
                 url.startsWith("blob:", ignoreCase = true) -> saveBlob(webView, url, contentDisposition, mimeType)
                 url.startsWith("data:", ignoreCase = true) -> saveDataUrl(url, contentDisposition, mimeType)
@@ -176,6 +180,11 @@ class DownloadSaver(private val activity: ComponentActivity) {
             return false
         }
         val video = DownloadNames.isVideo(mimeType, filename)
+        if (video) {
+            return MediaStoreAlbum.insertVideo(activity, filename, mimeType.ifBlank { "video/mp4" }) { out ->
+                out.write(bytes)
+            } != null
+        }
         val resolver = activity.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
@@ -249,6 +258,24 @@ class DownloadSaver(private val activity: ComponentActivity) {
                 return
             }
             persistDataUrl(dataUrl, filename, mimeType.ifBlank { "video/mp4" })
+        }
+
+        @JavascriptInterface
+        fun reportResultVideo(url: String, filename: String, mimeType: String) {
+            activity.runOnUiThread {
+                albumSaver.remember(
+                    url = url,
+                    mimeType = mimeType.ifBlank { null },
+                    filename = filename.ifBlank { null },
+                )
+            }
+        }
+
+        @JavascriptInterface
+        fun saveAlbumBase64(dataUrl: String, filename: String, mimeType: String) {
+            activity.runOnUiThread {
+                albumSaver.persistAlbumBase64(dataUrl, filename, mimeType)
+            }
         }
     }
 

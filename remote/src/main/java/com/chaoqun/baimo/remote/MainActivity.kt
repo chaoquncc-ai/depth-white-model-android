@@ -19,6 +19,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
+import com.chaoqun.baimo.remote.download.AlbumVideoSaver
 import com.chaoqun.baimo.remote.download.DownloadSaver
 import com.chaoqun.baimo.remote.picker.GalleryVideoPicker
 import com.chaoqun.baimo.remote.ui.RemoteScreen
@@ -28,7 +29,8 @@ import com.chaoqun.baimo.remote.web.RemoteWebViewClient
 
 class MainActivity : ComponentActivity() {
     private val videoPicker = GalleryVideoPicker(this)
-    private val downloadSaver = DownloadSaver(this)
+    private val albumSaver = AlbumVideoSaver(this)
+    private val downloadSaver = DownloadSaver(this, albumSaver)
     private val vm: RemoteViewModel by viewModels()
     private var webView: WebView? = null
 
@@ -45,6 +47,9 @@ class MainActivity : ComponentActivity() {
         }
         maybeRequestNotifications()
         downloadSaver.onMessage = { vm.showMessage(it) }
+        albumSaver.onMessage = { vm.showMessage(it) }
+        albumSaver.onLatestChanged = { vm.rememberResultAvailable(it) }
+        albumSaver.onSaving = { vm.updateSavingToAlbum(it) }
 
         setContent {
             BaiMoRemoteTheme {
@@ -71,6 +76,14 @@ class MainActivity : ComponentActivity() {
                         loadServer(vm.serverUrl)
                     },
                     onApplyKeepScreenOn = ::applyKeepScreenOn,
+                    onSaveToAlbum = {
+                        val view = webView
+                        if (view == null) {
+                            vm.showMessage(getString(R.string.save_to_album_none))
+                        } else {
+                            albumSaver.saveToAlbum(view)
+                        }
+                    },
                 )
             }
         }
@@ -87,6 +100,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun loadServer(url: String) {
+        albumSaver.clear()
         webView?.loadUrl(url)
         vm.updatePageError(null)
     }
@@ -116,7 +130,10 @@ class MainActivity : ComponentActivity() {
             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             webViewClient = RemoteWebViewClient(
                 onPageStarted = { vm.updatePageError(null) },
-                onPageFinished = { vm.updateProgress(100) },
+                onPageFinished = { finished ->
+                    vm.updateProgress(100)
+                    albumSaver.injectObserver(finished)
+                },
                 onMainFrameError = { vm.updatePageError(it ?: getString(R.string.page_error)) },
             )
             webChromeClient = RemoteChromeClient(videoPicker) { vm.updateProgress(it) }
@@ -146,6 +163,7 @@ class MainActivity : ComponentActivity() {
         CookieManager.getInstance().removeAllCookies(null)
         CookieManager.getInstance().flush()
         WebStorage.getInstance().deleteAllData()
+        albumSaver.clear()
         webView?.loadUrl(vm.serverUrl)
     }
 
